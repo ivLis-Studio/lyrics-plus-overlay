@@ -261,6 +261,36 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            // macOS Specific Configuration
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::ActivationPolicy;
+                app.set_activation_policy(ActivationPolicy::Accessory);
+
+                use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior, NSColor};
+                use cocoa::base::{id, nil};
+
+                if let Some(window) = app.get_webview_window("main") {
+                    // Try to cast to NSWindow id
+                    // Note: window.ns_window() returns a raw pointer/handle which we cast to id
+                    let ns_window_handle = window.ns_window().unwrap();
+                    let ns_window = ns_window_handle as id;
+                    
+                    unsafe {
+                        // Force Transparency
+                        ns_window.setOpaque_(cocoa::base::NO);
+                        ns_window.setBackgroundColor_(NSColor::clearColor(nil));
+                        
+                        // Set Collection Behavior: CanJoinAllSpaces (1<<0) | Stationary (1<<4) | IgnoresCycle (1<<6)
+                        // This makes it visible on all desktops and not participate in window cycling
+                        let behavior = NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces |
+                                       NSWindowCollectionBehavior::NSWindowCollectionBehaviorStationary |
+                                       NSWindowCollectionBehavior::NSWindowCollectionBehaviorIgnoresCycle;
+                        ns_window.setCollectionBehavior_(behavior);
+                    }
+                }
+            }
+
             let app_handle = app.handle().clone();
             
             // Start HTTP server in background
