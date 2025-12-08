@@ -1,0 +1,633 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+    background: transparent !important;
+    /* overflow: hidden; -> Removed global hidden to allow scroll in settings */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard Variable', sans-serif;
+    user-select: none;
+    pointer-events: none;
+    /* [Click Through] Background should pass clicks */
+}
+
+/* Scrollbar for Settings */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Main Overlay Container - Fully transparent, no border */
+/* Main Overlay Container - Fully transparent, no border */
+.overlay-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* Fixed gap between Track Info and Lyrics Box */
+    padding: 12px;
+    /* Fixed padding */
+    cursor: default;
+    /* Default cursor for passthrough area */
+    background: transparent !important;
+    transition: opacity 0.3s ease;
+    overflow: hidden;
+    pointer-events: none;
+    /* [Click Through] Container passes clicks */
+}
+
+/* Interactive Elements - Catch Clicks and Hover */
+.track-info-line,
+.lyrics-box,
+.control-group,
+.trigger-zone {
+    pointer-events: auto !important;
+}
+
+/* Unlocked state: Catch all clicks to allow dragging empty space */
+.overlay-container.unlocked {
+    pointer-events: auto;
+    border: 2px dashed rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.05) !important;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+    /* Visual contrast */
+    cursor: grab;
+}
+
+/* Alignment variations */
+.overlay-container.align-left {
+    align-items: flex-start;
+}
+
+.overlay-container.align-center {
+    align-items: center;
+}
+
+.overlay-container.align-right {
+    align-items: flex-end;
+}
+
+/* Dragging cursor */
+.overlay-container:not(.locked):active {
+    cursor: grabbing;
+}
+
+/* Hidden Trigger Zone for Controls */
+.trigger-zone {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    width: 32px;
+    height: 32px;
+    z-index: 9998;
+    background: transparent;
+    /* Invisible but catches hover */
+}
+
+/* Control Group (Lock + Settings) */
+.control-group {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    display: flex;
+    flex-direction: row;
+    /* [Layout] Force Horizontal */
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 9999;
+    /* Ensure on top */
+}
+
+/* Show controls when hovering trigger zone or the group itself */
+.trigger-zone:hover~.control-group,
+.control-group:hover,
+.overlay-container.unlocked .control-group {
+    /* Always show when unlocked */
+    opacity: 1;
+}
+
+/* Icon Buttons */
+.icon-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    min-width: 32px;
+    /* [Layout] Prevent shrinking */
+}
+
+.icon-btn:hover {
+    background: rgba(0, 0, 0, 0.7);
+    transform: scale(1.05);
+}
+
+.lock-toggle {
+    /* color: #ffd700; */
+}
+
+/* Track Info Line - Compact inline style */
+.track-info-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--line-bg, rgba(0, 0, 0, 0.6));
+    padding: 6px 12px;
+    border-radius: var(--border-radius, 12px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.album-art {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.track-text {
+    font-size: var(--track-info-size, 13px);
+    font-weight: var(--track-info-weight, 600);
+    color: rgba(255, 255, 255, var(--track-info-opacity, 0.9));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 350px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    /* Always keep subtle shadow for readability */
+}
+
+/* Lyrics Box */
+.lyrics-box {
+    display: flex;
+    flex-direction: column;
+    /* Vertical stack of lines */
+    gap: var(--line-gap, 6px);
+    pointer-events: none;
+    /* Box itself doesn't block, lines do */
+}
+
+/* Inherit alignment from parent */
+.align-left .lyrics-box {
+    align-items: flex-start;
+}
+
+.align-center .lyrics-box {
+    align-items: center;
+}
+
+.align-right .lyrics-box {
+    align-items: flex-end;
+}
+
+.lyrics-box.waiting {
+    background: var(--line-bg, rgba(0, 0, 0, 0.6));
+    padding: var(--padding, 12px) 20px;
+    border-radius: var(--border-radius, 12px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+    pointer-events: auto;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    max-width: 90vw;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    line-height: 1.4;
+    /* [Padding] Ensure consistent height */
+    pointer-events: auto;
+    /* Lines are interactive */
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.anim-fade {
+    animation: fadeIn var(--anim-duration, 300ms) ease forwards;
+}
+
+.anim-slide {
+    animation: slideUp var(--anim-duration, 300ms) cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.anim-scale {
+    animation: scaleIn var(--anim-duration, 300ms) cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Original text - prominent */
+.lyric-line.original {
+    font-size: var(--original-size, 24px);
+    font-weight: var(--original-weight, 700);
+    color: var(--active-color, #1db954);
+    background: var(--line-bg, rgba(0, 0, 0, 0.6));
+    padding: 4px 12px;
+    border-radius: 12px;
+    backdrop-filter: blur(4px);
+    width: fit-content;
+    margin: 2px 0;
+    line-height: 1.2;
+    text-shadow: var(--text-shadow, none);
+    -webkit-text-stroke: var(--text-stroke, none);
+}
+
+/* Phonetic text - smaller, muted */
+.lyric-line.phonetic {
+    font-size: var(--phonetic-size, 14px);
+    font-weight: var(--phonetic-weight, 500);
+    color: var(--phonetic-color, #cccccc);
+    background: var(--line-bg, rgba(0, 0, 0, 0.6));
+    padding: 2px 8px;
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+    text-shadow: var(--text-shadow, none);
+    -webkit-text-stroke: var(--text-stroke, none);
+    width: fit-content;
+    margin: 2px 0;
+    line-height: 1.3;
+}
+
+/* Translation text - smaller, muted */
+.lyric-line.translation {
+    font-size: var(--translation-size, 16px);
+    font-weight: var(--translation-weight, 500);
+    color: var(--translation-color, #aaaaaa);
+    background: var(--line-bg, rgba(0, 0, 0, 0.6));
+    padding: 2px 8px;
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+    text-shadow: var(--text-shadow, none);
+    -webkit-text-stroke: var(--text-stroke, none);
+    width: fit-content;
+    margin: 2px 0;
+    line-height: 1.3;
+}
+
+
+/* Paused state - slight dim */
+.overlay-container.paused .lyric-line,
+.overlay-container.paused .track-info-line {
+    opacity: 0.7;
+    filter: grayscale(0.3);
+}
+
+/* ============================================
+   iOS Style Settings Panel
+   ============================================ */
+.settings-panel.ios-style {
+    background: #000000;
+    /* Deep black for OLED feel */
+    min-height: 100vh;
+    color: #fff;
+    padding-bottom: 40px;
+    pointer-events: auto;
+    /* Settings panel must be interactive */
+    overflow-y: auto;
+    /* Allow scrolling */
+}
+
+.settings-header {
+    padding: 20px 20px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    /* border-bottom: 1px solid rgba(255,255,255,0.1); */
+}
+
+.settings-header h2 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.lang-toggle-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.lang-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.settings-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.ios-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.section-header {
+    padding-left: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #8e8e93;
+    /* iOS Gray */
+    text-transform: uppercase;
+    letter-spacing: -0.2px;
+}
+
+.ios-list {
+    background: #1c1c1e;
+    /* iOS Dark Secondary */
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.ios-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    min-height: 44px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.ios-item:last-child {
+    border-bottom: none;
+}
+
+.ios-item:hover {
+    background: #2c2c2e;
+}
+
+.ios-item.column {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 16px;
+}
+
+.item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.value-text {
+    color: #8e8e93;
+    font-size: 15px;
+}
+
+/* iOS Toggle Switch */
+.toggle-wrapper {
+    position: relative;
+    width: 51px;
+    height: 31px;
+}
+
+.toggle-wrapper input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #39393d;
+    transition: .3s;
+    border-radius: 31px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 27px;
+    width: 27px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+input:checked+.toggle-slider {
+    background-color: #30d158;
+    /* iOS Green */
+}
+
+input:checked+.toggle-slider:before {
+    transform: translateX(20px);
+}
+
+/* iOS Segmented Control */
+.ios-segmented-control {
+    background: #1c1c1e;
+    padding: 2px;
+    border-radius: 9px;
+    display: flex;
+    height: 32px;
+}
+
+.ios-segmented-control button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ios-segmented-control button.active {
+    background: #636366;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Sliders */
+input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: #3a3a3c;
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* Colors */
+.color-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.color-wrapper input[type="color"] {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.color-preview {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Destructive Button */
+.ios-button.destructive {
+    background: #1c1c1e;
+    color: #ff453a;
+    /* iOS Red */
+    border: none;
+    padding: 16px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    width: 100%;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+
+/* Slider Group for Granular Settings */
+.slider-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.slider-group input {
+    flex: 1;
+}
+
+/* iOS Select */
+.ios-select {
+    background: #3a3a3c;
+    color: white;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+    height: 28px;
+}
+
+.ios-button.destructive:active {
+    background: #2c2c2e;
+}
+
+/* Custom Hold Tooltip */
+.hold-tooltip {
+    position: absolute;
+    top: 50%;
+    left: 48px;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: fadeIn 0.2s;
+    backdrop-filter: blur(4px);
+    z-index: 10000;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Ensure SVG doesn't block interactions */
+.lock-toggle svg {
+    pointer-events: none;
+}
