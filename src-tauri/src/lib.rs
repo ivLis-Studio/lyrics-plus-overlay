@@ -303,62 +303,172 @@ pub fn run() {
             let loop_lock_state = lock_state.clone();
             let loop_app_handle = app_handle.clone();
 
+            // Start Mouse Polling Thread
+            let loop_lock_state = lock_state.clone();
+            let loop_app_handle = app_handle.clone();
+
+            // Start Mouse Polling Thread
+            let loop_lock_state = lock_state.clone();
+            let loop_app_handle = app_handle.clone();
+
             std::thread::spawn(move || {
+                let mut was_hovering = false;
+                
+                // For idle detection
+                let mut last_mouse_x = 0;
+                let mut last_mouse_y = 0;
+                let mut idle_ticks = 0;
+                let max_idle_ticks = 30; // 30 * 100ms = 3 seconds
+
                 loop {
                     std::thread::sleep(Duration::from_millis(100)); // Poll every 100ms
 
-                    // Only run checking on Windows for now due to GetCursorPos
+                    let mut current_hovering = false;
+                    let mut current_x = 0;
+                    let mut current_y = 0;
+                    
+                    // --- Windows Logic ---
                     #[cfg(target_os = "windows")]
                     {
                         if let Some(window) = loop_app_handle.get_webview_window("main") {
-                            let mut state = match loop_lock_state.lock() {
-                                Ok(s) => s,
-                                Err(_) => continue,
-                            };
-
-                            // If not locked (Edit Mode), always allow interaction
-                            if !state.is_locked {
-                                if !state.is_interactive {
-                                    let _ = window.set_ignore_cursor_events(false);
-                                    state.is_interactive = true;
-                                }
-                                continue;
-                            }
-
-                            // If Locked, check mouse position
                             let mut point = POINT::default();
                             let success = unsafe { GetCursorPos(&mut point) };
-                            
+
                             if success.is_ok() {
-                                // Get Window Position & Size
-                                if let (Ok(win_pos), Ok(_win_size)) = (window.outer_position(), window.inner_size()) {
+                                if let (Ok(win_pos), Ok(win_size)) = (window.outer_position(), window.inner_size()) {
                                     let rel_x = point.x - win_pos.x;
                                     let rel_y = point.y - win_pos.y;
+                                    
+                                    current_x = point.x;
+                                    current_y = point.y;
 
-                                    // Trigger Zone: Top-Left (200x120) includes controls
-                                    // Or if hovering over specific lyric lines? 
-                                    // For now, only enable controls (lock/settings) via trigger zone.
-                                    // "Hover to show controls" -> Controls are top-left.
-                                    let in_trigger_zone = rel_x >= 0 && rel_x < 200 && rel_y >= 0 && rel_y < 120;
-
-                                    if in_trigger_zone {
-                                        // Mouse in zone -> Make Interactive
-                                        if !state.is_interactive {
-                                            let _ = window.set_ignore_cursor_events(false);
-                                            state.is_interactive = true;
-                                            // println!("Enter Trigger Zone: Interactive ON");
-                                        }
-                                    } else {
-                                        // Mouse out of zone -> Make Pass-through
-                                        if state.is_interactive {
-                                            let _ = window.set_ignore_cursor_events(true);
-                                            state.is_interactive = false;
-                                            // println!("Leave Trigger Zone: Interactive OFF");
+                                    // Check global hover
+                                    current_hovering = rel_x >= 0 && rel_x < win_size.width as i32 && 
+                                                      rel_y >= 0 && rel_y < win_size.height as i32;
+                                    
+                                    // Interactive Zone Logic (Keep pass-through if locked)
+                                    {
+                                        if let Ok(mut state) = loop_lock_state.lock() {
+                                            if state.is_locked {
+                                                if state.is_interactive {
+                                                    let _ = window.set_ignore_cursor_events(true);
+                                                    state.is_interactive = false;
+                                                }
+                                            } else {
+                                                if !state.is_interactive {
+                                                    let _ = window.set_ignore_cursor_events(false);
+                                                    state.is_interactive = true;
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
+                    }
+
+                    // --- macOS Logic ---
+                    #[cfg(target_os = "macos")]
+                    {
+                        use cocoa::base::{id, nil};
+                        use cocoa::appkit::{NSEvent, NSWindow};
+
+                        if let Some(window) = loop_app_handle.get_webview_window("main") {
+                             unsafe {
+                                let mouse_loc = NSEvent::mouseLocation(nil); 
+                                let ns_window: id = window.ns_window().unwrap() as id;
+                                let frame = ns_window.frame();
+                                
+                                current_x = mouse_loc.x as i32;
+                                current_y = mouse_loc.y as i32;
+
+                                current_hovering = mouse_loc.x >= frame.origin.x && 
+                                                  mouse_loc.x <= (frame.origin.x + frame.size.width) &&
+                                                  mouse_loc.y >= frame.origin.y && 
+                                                  mouse_loc.y <= (frame.origin.y + frame.size.height);
+
+                                if let Ok(mut state) = loop_lock_state.lock() {
+                                    if state.is_locked {
+                                        if state.is_interactive {
+                                            let _ = window.set_ignore_cursor_events(true);
+                                            state.is_interactive = false;
+                                        }
+                                    } else {
+                                         if !state.is_interactive {
+                                            let _ = window.set_ignore_cursor_events(false);
+                                            state.is_interactive = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // --- Common Logic ---
+                    // 1. Emit Hover Event (Opacity Control)
+                    if current_hovering != was_hovering {
+                        was_hovering = current_hovering;
+                        let _ = loop_app_handle.emit("overlay-hover", current_hovering);
+                        
+                        // Reset idle if left
+                        if !current_hovering {
+                            idle_ticks = 0;
+                            let _ = loop_app_handle.emit("unlock-progress", 0);
+                        }
+                    }
+
+                    // 2. Idle Detection (Unlock Progress)
+                    // Only calculate if currently hovering AND LOCKED
+                    let is_locked = loop_lock_state.lock().map(|s| s.is_locked).unwrap_or(true);
+                    
+                    // Config: 1s wait + 3s hold = 4s total
+                    let wait_ticks = 12; // 1.2s delay to be safe
+                    let hold_ticks = 30; // 3s filling time
+                    let total_ticks = wait_ticks + hold_ticks;
+
+                    if current_hovering && is_locked {
+                        // Check if mouse moved significantly (allow small jitter approx 5px radius)
+                        let dist_sq = (current_x - last_mouse_x).pow(2) + (current_y - last_mouse_y).pow(2);
+                        
+                        // Increase sensitivity check
+                        if dist_sq < 25 { 
+                            idle_ticks += 1;
+                        } else {
+                            idle_ticks = 0; // Moved -> Reset
+                        }
+                        
+                        // Update last pos
+                        last_mouse_x = current_x;
+                        last_mouse_y = current_y;
+
+                        // Calculate Progress
+                        let progress = if idle_ticks < wait_ticks {
+                            0.0
+                        } else {
+                            let effective_ticks = idle_ticks - wait_ticks;
+                            ((effective_ticks as f32 / hold_ticks as f32) * 100.0).min(100.0)
+                        };
+
+                        let _ = loop_app_handle.emit("unlock-progress", progress);
+
+                        if idle_ticks >= total_ticks {
+                            // Trigger Unlock
+                             if let Ok(mut state) = loop_lock_state.lock() {
+                                 state.is_locked = false;
+                                 let _ = loop_app_handle.emit("lock-state-update", false);
+                                 // Force reset ticks to avoid repeated toggling
+                                 idle_ticks = 0;
+                             }
+                        }
+
+                    } else {
+                        // Not hovering or Not locked
+                        if idle_ticks > 0 {
+                            idle_ticks = 0;
+                            let _ = loop_app_handle.emit("unlock-progress", 0.0);
+                        }
+                        last_mouse_x = current_x;
+                        last_mouse_y = current_y;
                     }
                 }
             });

@@ -279,8 +279,6 @@ function App() {
 
   // Unlock interaction state
   const [unlockProgress, setUnlockProgress] = useState(0);
-  const unlockTimerRef = useRef<number | null>(null);
-  const unlockStartTimeRef = useRef<number | null>(null);
 
   // Save settings to localStorage
   useEffect(() => {
@@ -315,6 +313,9 @@ function App() {
     return lyrics[activeLineIndex];
   }, [lyrics, activeLineIndex]);
 
+  // Hover state for opacity control
+  const [isHovering, setIsHovering] = useState(false);
+
   // Listen for events from Rust backend
   useEffect(() => {
     const unlistenLyrics = listen<LyricsEvent>("lyrics-update", (event) => {
@@ -338,6 +339,11 @@ function App() {
       setSettings(prev => ({ ...prev, isLocked: event.payload }));
     });
 
+    // Listen for hover state from backend (for transparency)
+    const unlistenHover = listen<boolean>("overlay-hover", (event) => {
+      setIsHovering(event.payload);
+    });
+
     // Initial setup: Sync lock state with backend
     if (!isSettingsWindow) {
       // Default is locked
@@ -348,6 +354,7 @@ function App() {
       unlistenLyrics.then((fn) => fn());
       unlistenProgress.then((fn) => fn());
       unlistenLockUpdate.then((fn) => fn());
+      unlistenHover.then((fn) => fn());
     };
   }, []); // Run once
 
@@ -515,12 +522,25 @@ function App() {
   const alignClass = settings.textAlign === 'left' ? 'align-left' :
     settings.textAlign === 'right' ? 'align-right' : 'align-center';
 
+  // Listen for unlock progress from backend
+  useEffect(() => {
+    const unlistenUnlockProgress = listen<number>("unlock-progress", (event) => {
+      setUnlockProgress(event.payload);
+    });
+
+    return () => {
+      unlistenUnlockProgress.then(fn => fn());
+    }
+  }, []);
+
   return (
     <div
       ref={containerRef}
       className={`overlay-container ${!isPlaying ? 'paused' : ''} ${alignClass} ${settings.isLocked ? 'locked' : 'unlocked'}`}
       onMouseDown={handleMouseDown}
       style={{
+        opacity: isHovering && settings.isLocked ? 0.2 : 1, // Dim on hover only when locked
+        transition: 'opacity 0.3s ease', // Smooth transition
         '--original-size': `${settings.originalFontSize}px`,
         '--phonetic-size': `${settings.phoneticFontSize}px`,
         '--translation-size': `${settings.translationFontSize}px`,
@@ -555,100 +575,98 @@ function App() {
         title="Hover for controls"
       /* Interactive logic handled by Rust backend polling */
       ></div>
+      {/* Global Unlock Progress Gauge (Centered) */}
+      {settings.isLocked && unlockProgress > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          <div style={{
+            position: 'relative',
+            width: '60px',
+            height: '60px',
+          }}>
+            <svg
+              width="60"
+              height="60"
+              viewBox="0 0 60 60"
+              style={{ transform: 'rotate(-90deg)' }}
+            >
+              <circle
+                cx="30"
+                cy="30"
+                r="26"
+                stroke="rgba(0,0,0,0.5)"
+                strokeWidth="6"
+                fill="rgba(0,0,0,0.3)"
+              />
+              <circle
+                cx="30"
+                cy="30"
+                r="26"
+                stroke={settings.activeColor}
+                strokeWidth="6"
+                fill="transparent"
+                strokeDasharray={`${2 * Math.PI * 26}`}
+                strokeDashoffset={`${2 * Math.PI * 26 * (1 - unlockProgress / 100)}`}
+                strokeLinecap="round"
+                style={{
+                  transition: 'stroke-dashoffset 0.1s linear'
+                }}
+              />
+            </svg>
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px'
+            }}>
+              🔓
+            </div>
+          </div>
+          <div style={{
+            color: 'white',
+            fontSize: '12px',
+            textShadow: '0 2px 4px black',
+            background: 'rgba(0,0,0,0.5)',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            whiteSpace: 'nowrap'
+          }}>
+            {t.holdToUnlock}
+          </div>
+        </div>
+      )}
+
       {/* Control Buttons Group (Visible on Hover) */}
       <div
         className="control-group"
       >
-        {/* Lock/Unlock Toggle with Hold Logic */}
+        {/* Lock/Unlock Toggle */}
         <div style={{ position: 'relative' }}>
           <button
             className="icon-btn lock-toggle"
             onClick={() => !settings.isLocked && toggleLock()}
-            onMouseEnter={() => {
-              if (settings.isLocked) {
-                // Reset
-                setUnlockProgress(0);
-                unlockStartTimeRef.current = Date.now();
-
-                const animate = () => {
-                  const elapsed = Date.now() - (unlockStartTimeRef.current || 0);
-                  const duration = 2000; // 2 seconds
-                  const progress = Math.min(elapsed / duration, 1);
-
-                  setUnlockProgress(progress * 100);
-
-                  if (progress < 1) {
-                    unlockTimerRef.current = requestAnimationFrame(animate);
-                  } else {
-                    toggleLock();
-                    setUnlockProgress(0);
-                    unlockTimerRef.current = null;
-                  }
-                };
-                unlockTimerRef.current = requestAnimationFrame(animate);
-              }
-            }}
-            onMouseLeave={() => {
-              if (unlockTimerRef.current) {
-                cancelAnimationFrame(unlockTimerRef.current);
-                unlockTimerRef.current = null;
-              }
-              setUnlockProgress(0);
-            }}
-            title={settings.isLocked ? "" : t.lockTooltip || "Lock"} // Disable native tooltip on lock to use custom one
-            style={{ position: 'relative' }}
+            title={settings.isLocked ? "" : t.lockTooltip || "Lock"}
+            style={{ position: 'relative', opacity: settings.isLocked ? 0.5 : 1 }}
           >
             {settings.isLocked ? "🔒" : "🔓"}
-
-            {/* Hold Gauge */}
-            {settings.isLocked && (
-              <svg
-                width="32"
-                height="32"
-                viewBox="0 0 32 32"
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  pointerEvents: 'none',
-                  transform: 'rotate(-90deg)',
-                  overflow: 'visible'
-                }}
-              >
-                {/* Background Track */}
-                <circle
-                  cx="16"
-                  cy="16"
-                  r="15"
-                  stroke="rgba(255,255,255,0.2)"
-                  strokeWidth="2"
-                  fill="transparent"
-                />
-                {/* Progress Circle */}
-                <circle
-                  cx="16"
-                  cy="16"
-                  r="15"
-                  stroke={settings.activeColor}
-                  strokeWidth="2"
-                  fill="transparent"
-                  strokeDasharray={`${2 * Math.PI * 15}`}
-                  strokeDashoffset={`${2 * Math.PI * 15 * (1 - unlockProgress / 100)}`}
-                  strokeLinecap="round"
-                  style={{
-                    transition: 'stroke-dashoffset 0.1s linear, stroke 0.3s ease'
-                  }}
-                />
-              </svg>
-            )}
           </button>
-
-          {/* Custom Tooltip */}
-          {settings.isLocked && unlockProgress > 0 && (
-            <div className="hold-tooltip">
-              {t.holdToUnlock}
-            </div>
-          )}
         </div>
 
         {/* Settings Button (Only visible when unlocked) */}
