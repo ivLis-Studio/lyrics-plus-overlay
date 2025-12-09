@@ -72,7 +72,12 @@ const defaultSettings = {
   nextTrackSeconds: 15,
 
   // Element Order (곡정보, 원어, 발음, 번역 순서)
-  elementOrder: ["trackInfo", "original", "phonetic", "translation"] as string[],
+  elementOrder: [
+    "trackInfo",
+    "original",
+    "phonetic",
+    "translation",
+  ] as string[],
 
   // Unlock Timing (seconds)
   enableHoverUnlock: true, // 호버로 잠금해제 기능 활성화
@@ -90,6 +95,8 @@ const defaultSettings = {
   // Layout Customization
   overlayMaxWidth: 500, // px (0 = no limit)
   sectionGap: 8, // gap between track info and lyrics
+
+  customCSS: "",
 };
 
 // Settings Tab Categories
@@ -226,6 +233,7 @@ const strings = {
     overlayMaxWidth: "최대 너비",
     sectionGap: "섹션 간격",
     noLimit: "제한 없음",
+    customCSS: "사용자 정의 CSS",
   },
   en: {
     // Tabs
@@ -353,6 +361,7 @@ const strings = {
     overlayMaxWidth: "Max Width",
     sectionGap: "Section Gap",
     noLimit: "No limit",
+    customCSS: "Custom CSS",
   },
 };
 
@@ -366,7 +375,11 @@ function App() {
   const [progress, setProgress] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [remaining, setRemaining] = useState<number>(Infinity);
-  const [nextTrack, setNextTrack] = useState<{ title: string; artist: string; albumArt?: string } | null>(null);
+  const [nextTrack, setNextTrack] = useState<{
+    title: string;
+    artist: string;
+    albumArt?: string;
+  } | null>(null);
   const [settings, setSettings] = useState<OverlaySettings>(() => {
     const saved = localStorage.getItem("overlay-settings-v3");
     return saved
@@ -515,7 +528,7 @@ function App() {
     if (!isSettingsWindow) {
       invoke("set_unlock_timing", {
         waitTime: settings.unlockWaitTime,
-        holdTime: settings.unlockHoldTime
+        holdTime: settings.unlockHoldTime,
       }).catch(console.error);
     }
   }, [settings.unlockWaitTime, settings.unlockHoldTime, isSettingsWindow]);
@@ -524,7 +537,7 @@ function App() {
   useEffect(() => {
     if (!isSettingsWindow) {
       invoke("set_hover_unlock_enabled", {
-        enabled: settings.enableHoverUnlock
+        enabled: settings.enableHoverUnlock,
       }).catch(console.error);
     }
   }, [settings.enableHoverUnlock, isSettingsWindow]);
@@ -533,7 +546,7 @@ function App() {
   useEffect(() => {
     if (!isSettingsWindow) {
       invoke("set_auto_lock_enabled", {
-        enabled: settings.enableAutoLock
+        enabled: settings.enableAutoLock,
       }).catch(console.error);
     }
   }, [settings.enableAutoLock, isSettingsWindow]);
@@ -541,7 +554,7 @@ function App() {
   useEffect(() => {
     if (!isSettingsWindow) {
       invoke("set_auto_lock_delay", {
-        delay: settings.autoLockDelay
+        delay: settings.autoLockDelay,
       }).catch(console.error);
     }
   }, [settings.autoLockDelay, isSettingsWindow]);
@@ -562,8 +575,6 @@ function App() {
     },
     [settings.isLocked]
   );
-
-
 
   // Check for updates
   const checkForAppUpdates = useCallback(async (manual = false) => {
@@ -617,10 +628,14 @@ function App() {
 
   // Get display text
   const getDisplayText = (line: LyricLine) => {
-    const hasPronText = line.pronText && line.pronText.trim() !== '' && line.pronText !== line.text;
+    const hasPronText =
+      line.pronText &&
+      line.pronText.trim() !== "" &&
+      line.pronText !== line.text;
     // transText가 존재하고, 빈 문자열이 아니며, 원어/발음과 다르면 표시
-    const hasTransText = line.transText &&
-      line.transText.trim() !== '' &&
+    const hasTransText =
+      line.transText &&
+      line.transText.trim() !== "" &&
       line.transText !== line.text &&
       line.transText !== line.pronText;
     return {
@@ -725,8 +740,8 @@ function App() {
     settings.textAlign === "left"
       ? "align-left"
       : settings.textAlign === "right"
-        ? "align-right"
-        : "align-center";
+      ? "align-right"
+      : "align-center";
 
   // Listen for unlock progress from backend
   useEffect(() => {
@@ -744,16 +759,25 @@ function App() {
 
   // Calculate visibility
   const shouldHide = settings.hideWhenPaused && !isPlaying && track !== null;
-  const calculatedOpacity = shouldHide ? 0 : (isHovering && settings.isLocked ? 0.2 : 1);
+  const calculatedOpacity = shouldHide
+    ? 0
+    : isHovering && settings.isLocked
+    ? 0.2
+    : 1;
 
   // Determine if we should show next track info instead of current track
-  const showNextTrackInfo = settings.showNextTrack && nextTrack && remaining <= settings.nextTrackSeconds && remaining > 0;
+  const showNextTrackInfo =
+    settings.showNextTrack &&
+    nextTrack &&
+    remaining <= settings.nextTrackSeconds &&
+    remaining > 0;
 
   return (
     <div
       ref={containerRef}
-      className={`overlay-container ${!isPlaying ? "paused" : ""
-        } ${alignClass} ${settings.isLocked ? "locked" : "unlocked"}`}
+      className={`overlay-container ${
+        !isPlaying ? "paused" : ""
+      } ${alignClass} ${settings.isLocked ? "locked" : "unlocked"}`}
       onMouseDown={handleMouseDown}
       style={
         {
@@ -762,9 +786,9 @@ function App() {
           background:
             settings.backgroundMode === "solid"
               ? hexToRgba(
-                settings.solidBackgroundColor,
-                settings.solidBackgroundOpacity / 100
-              )
+                  settings.solidBackgroundColor,
+                  settings.solidBackgroundOpacity / 100
+                )
               : "transparent",
           "--original-size": `${settings.originalFontSize}px`,
           "--phonetic-size": `${settings.phoneticFontSize}px`,
@@ -796,8 +820,8 @@ function App() {
             settings.textShadow === "soft"
               ? "0 2px 4px rgba(0,0,0,0.5)"
               : settings.textShadow === "hard"
-                ? "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
-                : "none",
+              ? "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
+              : "none",
           "--text-stroke": settings.textStroke
             ? `${settings.textStrokeSize}px black`
             : "none",
@@ -807,11 +831,14 @@ function App() {
           "--phonetic-font": settings.phoneticFontFamily || "inherit",
           "--translation-font": settings.translationFontFamily || "inherit",
           "--section-gap": `${settings.sectionGap}px`,
-          maxWidth: settings.overlayMaxWidth > 0 ? `${settings.overlayMaxWidth}px` : "none",
+          maxWidth:
+            settings.overlayMaxWidth > 0
+              ? `${settings.overlayMaxWidth}px`
+              : "none",
         } as React.CSSProperties
       }
     >
-
+      <style>{settings.customCSS}</style>
       {/* Global Unlock Progress Gauge (Centered) */}
       {settings.isLocked && unlockProgress > 0 && (
         <div
@@ -857,8 +884,9 @@ function App() {
                 strokeWidth="6"
                 fill="transparent"
                 strokeDasharray={`${2 * Math.PI * 26}`}
-                strokeDashoffset={`${2 * Math.PI * 26 * (1 - unlockProgress / 100)
-                  }`}
+                strokeDashoffset={`${
+                  2 * Math.PI * 26 * (1 - unlockProgress / 100)
+                }`}
                 strokeLinecap="round"
                 style={{
                   transition: "stroke-dashoffset 0.1s linear",
@@ -897,17 +925,20 @@ function App() {
         </div>
       )}
 
-
-
       {/* Render elements based on elementOrder */}
       {(() => {
         // Find trackInfo position in order
         const trackInfoIndex = settings.elementOrder.indexOf("trackInfo");
-        const lyricsElements = settings.elementOrder.filter(e => e !== "trackInfo");
+        const lyricsElements = settings.elementOrder.filter(
+          (e) => e !== "trackInfo"
+        );
 
         // Render track info at its position, and lyrics box content in order
         const renderTrackInfo = () => {
-          if (!settings.showTrackInfo || (!track && !(settings.showNextTrack && nextTrack))) {
+          if (
+            !settings.showTrackInfo ||
+            (!track && !(settings.showNextTrack && nextTrack))
+          ) {
             return null;
           }
           return (
@@ -930,14 +961,24 @@ function App() {
                       }}
                     />
                   )}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1px", minWidth: 0, flex: 1 }}>
-                    <span style={{
-                      fontSize: "10px",
-                      color: "rgba(255,255,255,0.5)",
-                      fontWeight: 500,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px"
-                    }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "1px",
+                      minWidth: 0,
+                      flex: 1,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        color: "rgba(255,255,255,0.5)",
+                        fontWeight: 500,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
                       {t.nextTrackLabel}
                     </span>
                     <span className="track-text" style={{ marginTop: "1px" }}>
@@ -972,21 +1013,36 @@ function App() {
           if (!display) return null;
 
           // Render lyrics elements in order
-          const lyricsContent = lyricsElements.map(element => {
-            switch (element) {
-              case "original":
-                if (!settings.showOriginal || !display.main) return null;
-                return <div key="original" className="lyric-line original">{display.main}</div>;
-              case "phonetic":
-                if (!settings.showPhonetic || !display.phonetic) return null;
-                return <div key="phonetic" className="lyric-line phonetic">{display.phonetic}</div>;
-              case "translation":
-                if (!settings.showTranslation || !display.translation) return null;
-                return <div key="translation" className="lyric-line translation">{display.translation}</div>;
-              default:
-                return null;
-            }
-          }).filter(Boolean);
+          const lyricsContent = lyricsElements
+            .map((element) => {
+              switch (element) {
+                case "original":
+                  if (!settings.showOriginal || !display.main) return null;
+                  return (
+                    <div key="original" className="lyric-line original">
+                      {display.main}
+                    </div>
+                  );
+                case "phonetic":
+                  if (!settings.showPhonetic || !display.phonetic) return null;
+                  return (
+                    <div key="phonetic" className="lyric-line phonetic">
+                      {display.phonetic}
+                    </div>
+                  );
+                case "translation":
+                  if (!settings.showTranslation || !display.translation)
+                    return null;
+                  return (
+                    <div key="translation" className="lyric-line translation">
+                      {display.translation}
+                    </div>
+                  );
+                default:
+                  return null;
+              }
+            })
+            .filter(Boolean);
 
           if (lyricsContent.length === 0) return null;
 
@@ -1100,8 +1156,9 @@ function FontPicker({
             {filteredFonts.map((font) => (
               <div
                 key={font}
-                className={`font-picker-item ${value === font ? "selected" : ""
-                  }`}
+                className={`font-picker-item ${
+                  value === font ? "selected" : ""
+                }`}
                 style={{ fontFamily: font }}
                 onClick={() => {
                   onChange(font);
@@ -1195,10 +1252,10 @@ function SettingsPanel({
               {tab === "general"
                 ? t.tabGeneral
                 : tab === "display"
-                  ? t.tabDisplay
-                  : tab === "style"
-                    ? t.tabStyle
-                    : t.tabAnim}
+                ? t.tabDisplay
+                : tab === "style"
+                ? t.tabStyle
+                : t.tabAnim}
             </button>
           )
         )}
@@ -1325,13 +1382,21 @@ function SettingsPanel({
                   </div>
                   <div className="ios-segmented-control">
                     <button
-                      className={settings.backgroundMode === "transparent" ? "active" : ""}
-                      onClick={() => updateSetting("backgroundMode", "transparent")}
+                      className={
+                        settings.backgroundMode === "transparent"
+                          ? "active"
+                          : ""
+                      }
+                      onClick={() =>
+                        updateSetting("backgroundMode", "transparent")
+                      }
                     >
                       {t.bgModeTransparent}
                     </button>
                     <button
-                      className={settings.backgroundMode === "solid" ? "active" : ""}
+                      className={
+                        settings.backgroundMode === "solid" ? "active" : ""
+                      }
                       onClick={() => updateSetting("backgroundMode", "solid")}
                     >
                       {t.bgModeSolid}
@@ -1347,7 +1412,10 @@ function SettingsPanel({
                           type="color"
                           value={settings.solidBackgroundColor}
                           onChange={(e) =>
-                            updateSetting("solidBackgroundColor", e.target.value)
+                            updateSetting(
+                              "solidBackgroundColor",
+                              e.target.value
+                            )
                           }
                         />
                         <div
@@ -1416,7 +1484,8 @@ function SettingsPanel({
                     <div className="item-row">
                       <span>{t.nextTrackSeconds}</span>
                       <span className="value-text">
-                        {settings.nextTrackSeconds}{t.seconds}
+                        {settings.nextTrackSeconds}
+                        {t.seconds}
                       </span>
                     </div>
                     <input
@@ -1451,20 +1520,36 @@ function SettingsPanel({
                   const moveUp = () => {
                     if (index === 0) return;
                     const newOrder = [...settings.elementOrder];
-                    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+                    [newOrder[index - 1], newOrder[index]] = [
+                      newOrder[index],
+                      newOrder[index - 1],
+                    ];
                     updateSetting("elementOrder", newOrder);
                   };
 
                   const moveDown = () => {
                     if (index === settings.elementOrder.length - 1) return;
                     const newOrder = [...settings.elementOrder];
-                    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+                    [newOrder[index], newOrder[index + 1]] = [
+                      newOrder[index + 1],
+                      newOrder[index],
+                    ];
                     updateSetting("elementOrder", newOrder);
                   };
 
                   return (
-                    <div key={element} className="ios-item" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ flex: 1 }}>{elementLabels[element] || element}</span>
+                    <div
+                      key={element}
+                      className="ios-item"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
+                      <span style={{ flex: 1 }}>
+                        {elementLabels[element] || element}
+                      </span>
                       <div style={{ display: "flex", gap: "4px" }}>
                         <button
                           onClick={moveUp}
@@ -1474,8 +1559,12 @@ function SettingsPanel({
                             height: "28px",
                             borderRadius: "6px",
                             border: "none",
-                            background: index === 0 ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.2)",
-                            color: index === 0 ? "rgba(255,255,255,0.3)" : "#fff",
+                            background:
+                              index === 0
+                                ? "rgba(255,255,255,0.1)"
+                                : "rgba(255,255,255,0.2)",
+                            color:
+                              index === 0 ? "rgba(255,255,255,0.3)" : "#fff",
                             cursor: index === 0 ? "not-allowed" : "pointer",
                             fontSize: "14px",
                             pointerEvents: "auto",
@@ -1491,9 +1580,18 @@ function SettingsPanel({
                             height: "28px",
                             borderRadius: "6px",
                             border: "none",
-                            background: index === settings.elementOrder.length - 1 ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.2)",
-                            color: index === settings.elementOrder.length - 1 ? "rgba(255,255,255,0.3)" : "#fff",
-                            cursor: index === settings.elementOrder.length - 1 ? "not-allowed" : "pointer",
+                            background:
+                              index === settings.elementOrder.length - 1
+                                ? "rgba(255,255,255,0.1)"
+                                : "rgba(255,255,255,0.2)",
+                            color:
+                              index === settings.elementOrder.length - 1
+                                ? "rgba(255,255,255,0.3)"
+                                : "#fff",
+                            cursor:
+                              index === settings.elementOrder.length - 1
+                                ? "not-allowed"
+                                : "pointer",
                             fontSize: "14px",
                             pointerEvents: "auto",
                           }}
@@ -1507,7 +1605,6 @@ function SettingsPanel({
               </div>
             </section>
 
-
             {/* Unlock Timing Section */}
             <section className="ios-section">
               <div className="section-header">{t.unlockTimingSection}</div>
@@ -1519,7 +1616,9 @@ function SettingsPanel({
                     <input
                       type="checkbox"
                       checked={settings.enableHoverUnlock}
-                      onChange={(e) => updateSetting("enableHoverUnlock", e.target.checked)}
+                      onChange={(e) =>
+                        updateSetting("enableHoverUnlock", e.target.checked)
+                      }
                     />
                     <span className="toggle-slider" />
                   </label>
@@ -1530,7 +1629,10 @@ function SettingsPanel({
                     <div className="ios-item column">
                       <div className="item-row">
                         <span>{t.unlockWaitTime}</span>
-                        <span className="value-text">{settings.unlockWaitTime.toFixed(1)}{t.seconds}</span>
+                        <span className="value-text">
+                          {settings.unlockWaitTime.toFixed(1)}
+                          {t.seconds}
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -1538,13 +1640,21 @@ function SettingsPanel({
                         max="3"
                         step="0.1"
                         value={settings.unlockWaitTime}
-                        onChange={(e) => updateSetting("unlockWaitTime", parseFloat(e.target.value))}
+                        onChange={(e) =>
+                          updateSetting(
+                            "unlockWaitTime",
+                            parseFloat(e.target.value)
+                          )
+                        }
                       />
                     </div>
                     <div className="ios-item column">
                       <div className="item-row">
                         <span>{t.unlockHoldTime}</span>
-                        <span className="value-text">{settings.unlockHoldTime.toFixed(1)}{t.seconds}</span>
+                        <span className="value-text">
+                          {settings.unlockHoldTime.toFixed(1)}
+                          {t.seconds}
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -1552,7 +1662,12 @@ function SettingsPanel({
                         max="5"
                         step="0.5"
                         value={settings.unlockHoldTime}
-                        onChange={(e) => updateSetting("unlockHoldTime", parseFloat(e.target.value))}
+                        onChange={(e) =>
+                          updateSetting(
+                            "unlockHoldTime",
+                            parseFloat(e.target.value)
+                          )
+                        }
                       />
                     </div>
                   </>
@@ -1565,7 +1680,9 @@ function SettingsPanel({
                     <input
                       type="checkbox"
                       checked={settings.enableAutoLock}
-                      onChange={(e) => updateSetting("enableAutoLock", e.target.checked)}
+                      onChange={(e) =>
+                        updateSetting("enableAutoLock", e.target.checked)
+                      }
                     />
                     <span className="toggle-slider" />
                   </label>
@@ -1575,7 +1692,10 @@ function SettingsPanel({
                   <div className="ios-item column">
                     <div className="item-row">
                       <span>{t.autoLockDelay}</span>
-                      <span className="value-text">{settings.autoLockDelay.toFixed(1)}{t.seconds}</span>
+                      <span className="value-text">
+                        {settings.autoLockDelay.toFixed(1)}
+                        {t.seconds}
+                      </span>
                     </div>
                     <input
                       type="range"
@@ -1583,13 +1703,17 @@ function SettingsPanel({
                       max="10"
                       step="0.5"
                       value={settings.autoLockDelay}
-                      onChange={(e) => updateSetting("autoLockDelay", parseFloat(e.target.value))}
+                      onChange={(e) =>
+                        updateSetting(
+                          "autoLockDelay",
+                          parseFloat(e.target.value)
+                        )
+                      }
                     />
                   </div>
                 )}
               </div>
             </section>
-
 
             <section className="ios-section">
               <div className="section-header">{t.layoutSection}</div>
@@ -1659,7 +1783,9 @@ function SettingsPanel({
                   <div className="item-row">
                     <span>{t.overlayMaxWidth}</span>
                     <span className="value-text">
-                      {settings.overlayMaxWidth === 0 ? t.noLimit : `${settings.overlayMaxWidth}px`}
+                      {settings.overlayMaxWidth === 0
+                        ? t.noLimit
+                        : `${settings.overlayMaxWidth}px`}
                     </span>
                   </div>
                   <input
@@ -1684,7 +1810,9 @@ function SettingsPanel({
                 <div className="ios-item column">
                   <div className="item-row">
                     <span>{t.albumArtSize}</span>
-                    <span className="value-text">{settings.albumArtSize}px</span>
+                    <span className="value-text">
+                      {settings.albumArtSize}px
+                    </span>
                   </div>
                   <input
                     type="range"
@@ -1700,7 +1828,9 @@ function SettingsPanel({
                 <div className="ios-item column">
                   <div className="item-row">
                     <span>{t.albumArtBorderRadius}</span>
-                    <span className="value-text">{settings.albumArtBorderRadius}px</span>
+                    <span className="value-text">
+                      {settings.albumArtBorderRadius}px
+                    </span>
                   </div>
                   <input
                     type="range"
@@ -1708,7 +1838,10 @@ function SettingsPanel({
                     max="32"
                     value={settings.albumArtBorderRadius}
                     onChange={(e) =>
-                      updateSetting("albumArtBorderRadius", parseInt(e.target.value))
+                      updateSetting(
+                        "albumArtBorderRadius",
+                        parseInt(e.target.value)
+                      )
                     }
                   />
                 </div>
@@ -2177,6 +2310,22 @@ function SettingsPanel({
                 </div>
               </div>
             </section>
+
+            {/* Custom CSS Textarea */}
+            <section className="ios-section">
+              <div className="section-header">{t.customCSS}</div>
+              <div className="ios-list">
+                <div className="ios-item column">
+                  <textarea
+                    className="custom-css-textarea"
+                    placeholder="/* Enter your custom CSS here */"
+                    value={settings.customCSS}
+                    onChange={(e) => updateSetting("customCSS", e.target.value)}
+                    rows={20}
+                  ></textarea>
+                </div>
+              </div>
+            </section>
           </>
         )}
 
@@ -2200,9 +2349,9 @@ function SettingsPanel({
                     >
                       {
                         t[
-                        ("anim" +
-                          type.charAt(0).toUpperCase() +
-                          type.slice(1)) as keyof typeof t
+                          ("anim" +
+                            type.charAt(0).toUpperCase() +
+                            type.slice(1)) as keyof typeof t
                         ]
                       }
                     </button>
