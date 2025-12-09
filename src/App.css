@@ -58,11 +58,10 @@ body,
 
 /* Interactive Elements - Catch Clicks and Hover */
 .track-info-line,
-.lyrics-box,
-.control-group,
-.trigger-zone {
+.lyrics-box {
   pointer-events: auto !important;
 }
+
 
 /* Unlocked state: Catch all clicks to allow dragging empty space */
 .overlay-container.unlocked {
@@ -91,41 +90,8 @@ body,
   cursor: grabbing;
 }
 
-/* Hidden Trigger Zone for Controls */
-.trigger-zone {
-  position: fixed;
-  top: 8px;
-  left: 8px;
-  width: 32px;
-  height: 32px;
-  z-index: 9998;
-  background: transparent;
-  /* Invisible but catches hover */
-}
 
-/* Control Group (Lock + Settings) */
-.control-group {
-  position: fixed;
-  top: 8px;
-  left: 8px;
-  display: flex;
-  flex-direction: row;
-  /* [Layout] Force Horizontal */
-  align-items: center;
-  gap: 8px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  z-index: 9999;
-  /* Ensure on top */
-}
 
-/* Show controls when hovering trigger zone or the group itself */
-.trigger-zone:hover~.control-group,
-.control-group:hover,
-.overlay-container.unlocked .control-group {
-  /* Always show when unlocked */
-  opacity: 1;
-}
 
 /* Icon Buttons */
 .icon-btn {
@@ -152,9 +118,6 @@ body,
   transform: scale(1.05);
 }
 
-.lock-toggle {
-  /* color: #ffd700; */
-}
 
 /* Track Info Line - Flexible width based on container */
 .track-info-line {
@@ -843,10 +806,6 @@ input[type="range"]:active::-webkit-slider-thumb {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* Ensure SVG doesn't block interactions */
-.lock-toggle svg {
-  pointer-events: none;
-}
 
 /* ============================================
    Update Modal - Premium iOS Style

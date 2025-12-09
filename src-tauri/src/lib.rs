@@ -96,6 +96,7 @@ struct AppLockState {
     is_interactive: bool, // Track current interactive state to avoid spamming calls
     unlock_wait_time: f32, // Wait time in seconds before progress starts
     unlock_hold_time: f32, // Hold time in seconds to complete unlock
+    enable_hover_unlock: bool, // Enable/disable hover unlock feature
 }
 
 // HTTP endpoint handlers
@@ -180,6 +181,18 @@ async fn set_unlock_timing(
     Ok(())
 }
 
+// Tauri command to enable/disable hover unlock from frontend
+#[tauri::command]
+async fn set_hover_unlock_enabled(
+    state: tauri::State<'_, Arc<Mutex<AppLockState>>>,
+    enabled: bool
+) -> Result<(), String> {
+    let mut s = state.lock().map_err(|e| e.to_string())?;
+    s.enable_hover_unlock = enabled;
+    Ok(())
+}
+
+
 // Tauri command to open settings window
 #[tauri::command]
 async fn open_settings_window(app: AppHandle) -> Result<(), String> {
@@ -229,7 +242,8 @@ pub fn run() {
         is_locked: true, // Default to locked (pass-through)
         is_interactive: false,
         unlock_wait_time: 1.2, // Default: 1.2 seconds
-        unlock_hold_time: 3.0, // Default: 3 seconds 
+        unlock_hold_time: 3.0, // Default: 3 seconds
+        enable_hover_unlock: true, // Default: enabled
     }));
 
     tauri::Builder::default()
@@ -243,12 +257,25 @@ pub fn run() {
             // Setup Tray Icon
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let settings_i = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
-            let reset_pos_i = MenuItem::with_id(app, "reset_pos", "Reset Position", true, None::<&str>)?; // Add Reset Position
+            let reset_pos_i = MenuItem::with_id(app, "reset_pos", "Reset Position", true, None::<&str>)?;
             let toggle_lock_i = MenuItem::with_id(app, "toggle_lock", "Lock/Unlock Toggle", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&toggle_lock_i, &settings_i, &reset_pos_i, &quit_i])?;
 
+            // Get tray icon - use default_window_icon with proper error handling
+            let tray_icon = app.default_window_icon()
+                .cloned()
+                .unwrap_or_else(|| {
+                    // Fallback: include icon at compile time
+                    let icon_bytes = include_bytes!("../icons/32x32.png");
+                    let img = image::load_from_memory(icon_bytes).expect("Failed to load embedded icon");
+                    let rgba = img.to_rgba8();
+                    let (width, height) = rgba.dimensions();
+                    tauri::image::Image::new_owned(rgba.into_raw(), width, height)
+                });
+
+
             let _tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(tray_icon)
                 .menu(&menu)
                 .show_menu_on_left_click(true)
                 .on_menu_event(|app, event| {
@@ -292,6 +319,7 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
 
             // macOS Specific Configuration
             #[cfg(target_os = "macos")]
@@ -452,17 +480,17 @@ pub fn run() {
                     }
 
                     // 2. Idle Detection (Unlock Progress)
-                    // Only calculate if currently hovering AND LOCKED
-                    let (is_locked, wait_time, hold_time) = loop_lock_state.lock()
-                        .map(|s| (s.is_locked, s.unlock_wait_time, s.unlock_hold_time))
-                        .unwrap_or((true, 1.2, 3.0));
+                    // Only calculate if currently hovering AND LOCKED AND hover unlock is enabled
+                    let (is_locked, wait_time, hold_time, hover_unlock_enabled) = loop_lock_state.lock()
+                        .map(|s| (s.is_locked, s.unlock_wait_time, s.unlock_hold_time, s.enable_hover_unlock))
+                        .unwrap_or((true, 1.2, 3.0, true));
                     
                     // Convert seconds to ticks (100ms per tick)
                     let wait_ticks = (wait_time * 10.0) as i32;
                     let hold_ticks = (hold_time * 10.0) as i32;
                     let total_ticks = wait_ticks + hold_ticks;
 
-                    if current_hovering && is_locked {
+                    if current_hovering && is_locked && hover_unlock_enabled {
                         // Check if mouse moved significantly (allow small jitter approx 5px radius)
                         let dist_sq = (current_x - last_mouse_x).pow(2) + (current_y - last_mouse_y).pow(2);
                         
@@ -517,8 +545,10 @@ pub fn run() {
             set_ignore_cursor_events,
             set_lock_state,
             set_unlock_timing,
+            set_hover_unlock_enabled,
             get_system_fonts
         ])
+
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

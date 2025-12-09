@@ -75,6 +75,7 @@ const defaultSettings = {
   elementOrder: ["trackInfo", "original", "phonetic", "translation"] as string[],
 
   // Unlock Timing (seconds)
+  enableHoverUnlock: true, // 호버로 잠금해제 기능 활성화
   unlockWaitTime: 1.2, // 대기 시간 (초)
   unlockHoldTime: 3.0, // 홀드 시간 (초)
 
@@ -206,7 +207,8 @@ const strings = {
     moveUp: "↑",
     moveDown: "↓",
     // Unlock Timing
-    unlockTimingSection: "잠금해제 시간",
+    unlockTimingSection: "잠금해제",
+    enableHoverUnlock: "호버로 잠금해제",
     unlockWaitTime: "대기 시간",
     unlockHoldTime: "홀드 시간",
     // Album Art
@@ -329,7 +331,8 @@ const strings = {
     moveUp: "↑",
     moveDown: "↓",
     // Unlock Timing
-    unlockTimingSection: "Unlock Timing",
+    unlockTimingSection: "Unlock",
+    enableHoverUnlock: "Hover to Unlock",
     unlockWaitTime: "Wait Time",
     unlockHoldTime: "Hold Time",
     // Album Art
@@ -349,6 +352,7 @@ function App() {
 
   const [track, setTrack] = useState<TrackInfo | null>(null);
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
+  const [_isSynced, setIsSynced] = useState<boolean>(true);
   const [progress, setProgress] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [remaining, setRemaining] = useState<number>(Infinity);
@@ -423,7 +427,14 @@ function App() {
       const payload = event.payload;
       if (payload.lyricsData) {
         setTrack(payload.lyricsData.track);
-        setLyrics(payload.lyricsData.lyrics);
+        // 싱크 데이터가 없는 일반 가사는 표시하지 않음
+        if (payload.lyricsData.isSynced) {
+          setLyrics(payload.lyricsData.lyrics);
+          setIsSynced(true);
+        } else {
+          setLyrics([]);
+          setIsSynced(false);
+        }
       }
     });
 
@@ -499,13 +510,22 @@ function App() {
     }
   }, [settings.unlockWaitTime, settings.unlockHoldTime, isSettingsWindow]);
 
+  // Sync hover unlock enabled setting
+  useEffect(() => {
+    if (!isSettingsWindow) {
+      invoke("set_hover_unlock_enabled", {
+        enabled: settings.enableHoverUnlock
+      }).catch(console.error);
+    }
+  }, [settings.enableHoverUnlock, isSettingsWindow]);
+
   // Drag functionality - only when unlocked
   const handleMouseDown = useCallback(
     async (e: React.MouseEvent) => {
       if (settings.isLocked) return;
 
       const target = e.target as HTMLElement;
-      if (target.closest("button, input, select, .control-group")) return;
+      if (target.closest("button, input, select")) return;
 
       try {
         await invoke("start_drag");
@@ -516,19 +536,7 @@ function App() {
     [settings.isLocked]
   );
 
-  // Open settings window
-  const openSettings = useCallback(async () => {
-    try {
-      await invoke("open_settings_window");
-    } catch (err) {
-      console.error("Failed to open settings:", err);
-    }
-  }, []);
 
-  // Toggle lock state
-  const toggleLock = useCallback(() => {
-    setSettings((prev) => ({ ...prev, isLocked: !prev.isLocked }));
-  }, []);
 
   // Check for updates
   const checkForAppUpdates = useCallback(async (manual = false) => {
@@ -776,11 +784,7 @@ function App() {
         } as React.CSSProperties
       }
     >
-      <div
-        className="trigger-zone"
-        title="Hover for controls"
-      /* Interactive logic handled by Rust backend polling */
-      ></div>
+
       {/* Global Unlock Progress Gauge (Centered) */}
       {settings.isLocked && unlockProgress > 0 && (
         <div
@@ -866,34 +870,7 @@ function App() {
         </div>
       )}
 
-      {/* Control Buttons Group (Visible on Hover) */}
-      <div className="control-group">
-        {/* Lock/Unlock Toggle */}
-        <div style={{ position: "relative" }}>
-          <button
-            className="icon-btn lock-toggle"
-            onClick={() => !settings.isLocked && toggleLock()}
-            title={settings.isLocked ? "" : t.lockTooltip || "Lock"}
-            style={{
-              position: "relative",
-              opacity: settings.isLocked ? 0.5 : 1,
-            }}
-          >
-            {settings.isLocked ? "🔒" : "🔓"}
-          </button>
-        </div>
 
-        {/* Settings Button (Only visible when unlocked) */}
-        {!settings.isLocked && (
-          <button
-            className="icon-btn settings-toggle"
-            onClick={openSettings}
-            title="Settings"
-          >
-            ⚙️
-          </button>
-        )}
-      </div>
 
       {/* Render elements based on elementOrder */}
       {(() => {
@@ -1503,40 +1480,59 @@ function SettingsPanel({
               </div>
             </section>
 
+
             {/* Unlock Timing Section */}
             <section className="ios-section">
               <div className="section-header">{t.unlockTimingSection}</div>
               <div className="ios-list">
-                <div className="ios-item column">
-                  <div className="item-row">
-                    <span>{t.unlockWaitTime}</span>
-                    <span className="value-text">{settings.unlockWaitTime.toFixed(1)}{t.seconds}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="3"
-                    step="0.1"
-                    value={settings.unlockWaitTime}
-                    onChange={(e) => updateSetting("unlockWaitTime", parseFloat(e.target.value))}
-                  />
+                {/* Enable Hover Unlock Toggle */}
+                <div className="ios-item">
+                  <span>{t.enableHoverUnlock}</span>
+                  <label className="toggle-wrapper">
+                    <input
+                      type="checkbox"
+                      checked={settings.enableHoverUnlock}
+                      onChange={(e) => updateSetting("enableHoverUnlock", e.target.checked)}
+                    />
+                    <span className="toggle-slider" />
+                  </label>
                 </div>
-                <div className="ios-item column">
-                  <div className="item-row">
-                    <span>{t.unlockHoldTime}</span>
-                    <span className="value-text">{settings.unlockHoldTime.toFixed(1)}{t.seconds}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="1"
-                    max="5"
-                    step="0.5"
-                    value={settings.unlockHoldTime}
-                    onChange={(e) => updateSetting("unlockHoldTime", parseFloat(e.target.value))}
-                  />
-                </div>
+                {/* Wait/Hold time sliders - only show when enabled */}
+                {settings.enableHoverUnlock && (
+                  <>
+                    <div className="ios-item column">
+                      <div className="item-row">
+                        <span>{t.unlockWaitTime}</span>
+                        <span className="value-text">{settings.unlockWaitTime.toFixed(1)}{t.seconds}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="3"
+                        step="0.1"
+                        value={settings.unlockWaitTime}
+                        onChange={(e) => updateSetting("unlockWaitTime", parseFloat(e.target.value))}
+                      />
+                    </div>
+                    <div className="ios-item column">
+                      <div className="item-row">
+                        <span>{t.unlockHoldTime}</span>
+                        <span className="value-text">{settings.unlockHoldTime.toFixed(1)}{t.seconds}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="0.5"
+                        value={settings.unlockHoldTime}
+                        onChange={(e) => updateSetting("unlockHoldTime", parseFloat(e.target.value))}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             </section>
+
 
             <section className="ios-section">
               <div className="section-header">{t.layoutSection}</div>

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "lyrics-plus-overlay",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "identifier": "com.ivlis.lyrics-plus-overlay",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -31,7 +31,11 @@
       "csp": "default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:15000"
     },
     "withGlobalTauri": true,
-    "macOSPrivateApi": true
+    "macOSPrivateApi": true,
+    "trayIcon": {
+      "iconPath": "icons/32x32.png",
+      "iconAsTemplate": true
+    }
   },
   "plugins": {
     "updater": {
