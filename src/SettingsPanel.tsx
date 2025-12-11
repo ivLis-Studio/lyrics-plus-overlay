@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { invoke } from "@tauri-apps/api/core";
 import { defaultSettings, OverlaySettings } from "./App";
 import "./SettingsPanel.css";
 
@@ -50,6 +51,12 @@ const strings = {
         fontWeight: "굵기",
         fontFamily: "글꼴",
         systemDefault: "시스템 기본",
+        originalFont: "원어 글꼴",
+        phoneticFont: "발음 글꼴",
+        translationFont: "번역 글꼴",
+        originalWeight: "원어 굵기",
+        phoneticWeight: "발음 굵기",
+        translationWeight: "번역 굵기",
 
         effectsSection: "효과",
         textShadow: "그림자",
@@ -155,6 +162,12 @@ const strings = {
         fontWeight: "Weight",
         fontFamily: "Font",
         systemDefault: "System Default",
+        originalFont: "Original Font",
+        phoneticFont: "Phonetic Font",
+        translationFont: "Translation Font",
+        originalWeight: "Original Weight",
+        phoneticWeight: "Phonetic Weight",
+        translationWeight: "Translation Weight",
 
         effectsSection: "Effects",
         textShadow: "Shadow",
@@ -308,6 +321,80 @@ function ColorPicker({
                 onChange={(e) => onChange(e.target.value)}
             />
         </div>
+    );
+}
+
+// 폰트 선택 컴포넌트
+function FontSelect({
+    value,
+    onChange,
+    placeholder = "System Default",
+}: {
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+}) {
+    const [fonts, setFonts] = useState<string[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        invoke<string[]>("get_system_fonts")
+            .then((systemFonts) => {
+                setFonts(systemFonts);
+                setIsLoading(false);
+            })
+            .catch((err) => {
+                console.error("Failed to get system fonts:", err);
+                setIsLoading(false);
+            });
+    }, []);
+
+    return (
+        <select
+            className="settings-select font-select"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={isLoading}
+        >
+            <option value="">{placeholder}</option>
+            {fonts.map((font) => (
+                <option key={font} value={font} style={{ fontFamily: font }}>
+                    {font}
+                </option>
+            ))}
+        </select>
+    );
+}
+
+// 굵기 선택 컴포넌트
+function WeightSelect({
+    value,
+    onChange,
+}: {
+    value: string;
+    onChange: (v: string) => void;
+}) {
+    const weights = [
+        { value: "300", label: "Light" },
+        { value: "400", label: "Regular" },
+        { value: "500", label: "Medium" },
+        { value: "600", label: "Semibold" },
+        { value: "700", label: "Bold" },
+        { value: "800", label: "Extrabold" },
+    ];
+
+    return (
+        <select
+            className="settings-select"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+        >
+            {weights.map((w) => (
+                <option key={w.value} value={w.value}>
+                    {w.label}
+                </option>
+            ))}
+        </select>
     );
 }
 
@@ -645,6 +732,19 @@ export default function SettingsPanelNew({
                                         min={12} max={48} step={1} suffix="px"
                                     />
                                 </SettingItem>
+                                <SettingItem label={t.originalFont}>
+                                    <FontSelect
+                                        value={settings.originalFontFamily}
+                                        onChange={(v) => update("originalFontFamily", v)}
+                                        placeholder={t.systemDefault}
+                                    />
+                                </SettingItem>
+                                <SettingItem label={t.originalWeight}>
+                                    <WeightSelect
+                                        value={settings.originalFontWeight}
+                                        onChange={(v) => update("originalFontWeight", v)}
+                                    />
+                                </SettingItem>
                                 <SettingItem label={t.phoneticSize} column>
                                     <Slider
                                         value={settings.phoneticFontSize}
@@ -652,11 +752,37 @@ export default function SettingsPanelNew({
                                         min={10} max={32} step={1} suffix="px"
                                     />
                                 </SettingItem>
+                                <SettingItem label={t.phoneticFont}>
+                                    <FontSelect
+                                        value={settings.phoneticFontFamily}
+                                        onChange={(v) => update("phoneticFontFamily", v)}
+                                        placeholder={t.systemDefault}
+                                    />
+                                </SettingItem>
+                                <SettingItem label={t.phoneticWeight}>
+                                    <WeightSelect
+                                        value={settings.phoneticFontWeight}
+                                        onChange={(v) => update("phoneticFontWeight", v)}
+                                    />
+                                </SettingItem>
                                 <SettingItem label={t.translationSize} column>
                                     <Slider
                                         value={settings.translationFontSize}
                                         onChange={(v) => update("translationFontSize", v)}
                                         min={10} max={32} step={1} suffix="px"
+                                    />
+                                </SettingItem>
+                                <SettingItem label={t.translationFont}>
+                                    <FontSelect
+                                        value={settings.translationFontFamily}
+                                        onChange={(v) => update("translationFontFamily", v)}
+                                        placeholder={t.systemDefault}
+                                    />
+                                </SettingItem>
+                                <SettingItem label={t.translationWeight}>
+                                    <WeightSelect
+                                        value={settings.translationFontWeight}
+                                        onChange={(v) => update("translationFontWeight", v)}
                                     />
                                 </SettingItem>
                             </SettingSection>
